@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-QFQ89ZRDJM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-QFQ89ZRDJM');
+</script>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Trò Chơi Đậu</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; touch-action:manipulation; }
+
+body {
+  background: #fff;
+  width: 100vw; height: 100dvh;
+  overflow: hidden;
+  font-family: 'Segoe UI', 'Arial Unicode MS', sans-serif;
+  user-select: none;
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+}
+
+#game {
+  width:100%; height:100%;
+  position: relative;
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+}
+
+/* 鞘を画面下部に固定する外枠 */
+#pod-anchor {
+  position: fixed;
+  bottom: 7.5vh;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#pod-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+}
+
+/* 豆の行（鞘の上に並ぶ） */
+#beans-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(8px, 3.2vw, 12px);
+  position: relative;
+  z-index: 5;
+  margin-bottom: clamp(6px, 2.1vw, 8px);
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+}
+
+.bean-char {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+}
+.bean-char canvas {
+  border-radius: 50%;
+  display: block;
+  box-shadow: 0 3px 10px rgba(60,120,20,0.30);
+}
+
+/* 吹き出し */
+.speech-bubble {
+  position: absolute;
+  bottom: calc(100% + clamp(8px, 2.7vw, 10px));
+  left: 50%;
+  transform: translateX(-50%) scale(0.75);
+  background: #fff;
+  border: 3px solid #7db833;
+  border-radius: 18px;
+  padding: clamp(8px, 3vw, 11px) clamp(11px, 4.5vw, 17px);
+  font-size: clamp(12px, 4.2vw, 16px);
+  font-weight: bold;
+  color: #4a7a10;
+  writing-mode: horizontal-tb !important;
+  -webkit-writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  white-space: normal;
+  width: clamp(200px, 55vw, 330px);
+  max-width: clamp(200px, 55vw, 330px);
+  text-align: center;
+  line-height: 1.5;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events: none;
+  z-index: 30;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.speech-bubble::after {
+  content:''; position:absolute; top:100%; left:50%;
+  transform:translateX(-50%);
+  border:7px solid transparent; border-top-color:#7db833;
+}
+.speech-bubble::before {
+  content:''; position:absolute; top:calc(100% - 3px); left:50%;
+  transform:translateX(-50%);
+  border:7px solid transparent; border-top-color:#fff;
+  z-index:1;
+}
+.speech-bubble.show {
+  opacity:1;
+  transform:translateX(-50%) scale(1);
+}
+/* 左豆：吹き出しを右へ */
+.speech-bubble.to-right {
+  left: 0;
+  transform: translateX(0) scale(0.75);
+}
+.speech-bubble.to-right.show {
+  transform: translateX(0) scale(1);
+}
+.speech-bubble.to-right::after { left: 15%; }
+.speech-bubble.to-right::before { left: 15%; }
+/* 右豆：吹き出しを左へ */
+.speech-bubble.to-left {
+  left: auto;
+  right: 0;
+  transform: translateX(0) scale(0.75);
+}
+.speech-bubble.to-left.show {
+  transform: translateX(0) scale(1);
+}
+.speech-bubble.to-left::after { left: 85%; }
+.speech-bubble.to-left::before { left: 85%; }
+
+/* 鞘 */
+#pod-wrap {
+  position: relative;
+  z-index: 10;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.1s;
+}
+#pod-wrap:active { transform: scale(0.96); }
+
+#pod-img {
+  display: block;
+  height: auto;
+  filter: drop-shadow(0 6px 20px rgba(80,140,30,0.22));
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* 長押しリング */
+#press-ring {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 56px; height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: #5c9c2e;
+  opacity: 0;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+#press-ring.running {
+  opacity: 1;
+  animation: ring-fill 0.6s linear forwards;
+}
+@keyframes ring-fill {
+  0%   { border-color:transparent; border-top-color:#5c9c2e;    transform:rotate(-90deg); }
+  25%  { border-right-color:#5c9c2e;  transform:rotate(0deg);   }
+  50%  { border-bottom-color:#5c9c2e; transform:rotate(90deg);  }
+  75%  { border-left-color:#5c9c2e;   transform:rotate(180deg); }
+  100% { border-color:#5c9c2e;        transform:rotate(270deg); }
+}
+
+/* スワイプヒント */
+#swipe-hint {
+  margin-top: clamp(12px, 4.3vw, 16px);
+  font-size: clamp(13px, 4vw, 15px); font-weight: bold;
+  color: #5c9c2e;
+  text-align: center;
+  opacity: 0; transition: opacity 0.4s;
+  pointer-events: none;
+}
+#swipe-hint.show { opacity:1; animation: sway 1.8s ease-in-out infinite; }
+@keyframes sway {
+  0%,100% { transform:translateX(0); }
+  30%     { transform:translateX(-10px); }
+  70%     { transform:translateX(10px); }
+}
+
+/* 豆が飛ぶ */
+@keyframes fly-out {
+  0%   { transform:translate(0,0) rotate(0deg) scale(1); opacity:1; }
+  100% { transform:translate(var(--fx),var(--fy)) rotate(var(--fr)) scale(0.2); opacity:0; }
+}
+
+/* 鞘シェイク */
+@keyframes pod-shake {
+  0%,100% { transform:rotate(0deg); }
+  20%     { transform:rotate(-5deg); }
+  40%     { transform:rotate(5deg);  }
+  60%     { transform:rotate(-3deg); }
+  80%     { transform:rotate(3deg);  }
+}
+.pod-shake { animation: pod-shake 0.4s ease; }
+
+/* 鞘スライド */
+@keyframes out-left  { to { transform:translateX(-130vw) rotate(-20deg); opacity:0; } }
+@keyframes out-right { to { transform:translateX( 130vw) rotate( 20deg); opacity:0; } }
+@keyframes in-right  { from { transform:translateX( 130vw); opacity:0; } to { transform:none; opacity:1; } }
+@keyframes in-left   { from { transform:translateX(-130vw); opacity:0; } to { transform:none; opacity:1; } }
+
+#pod-area.out-left  { animation: out-left  0.5s  ease-in                      forwards; }
+#pod-area.out-right { animation: out-right 0.5s  ease-in                      forwards; }
+#pod-area.in-right  { animation: in-right  0.52s cubic-bezier(0.22,1,0.36,1) forwards; }
+#pod-area.in-left   { animation: in-left   0.52s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+/* カウンター */
+#counter {
+  position: fixed; top:clamp(16px, 5.3vw, 20px); right:clamp(16px, 5.3vw, 20px);
+  font-size: clamp(33px, 10.5vw, 39px); color: #999;
+  text-align: right; line-height: 1.6;
+}
+.counter-img {
+  height: clamp(33px, 10.5vw, 39px);
+  width: auto;
+  vertical-align: middle;
+}
+.counter-img-mame {
+  background: #fff;
+}
+
+/* クリア */
+#cleared {
+  position: fixed; inset: 0;
+  background: rgba(255,255,255,0.96);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 100;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.6s;
+}
+#cleared.show { opacity:1; pointer-events:all; }
+.cl-icon  { margin-bottom:10px; }
+.cl-icon img { width: 160px; height: 160px; object-fit: cover; border-radius: 50%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.cl-title { font-size:30px; font-weight:bold; color:#5c9c2e; margin-bottom:8px; }
+.cl-sub   { font-size:15px; color:#aaa; margin-bottom:40px; }
+#retry-btn {
+  background:#5c9c2e; color:#fff;
+  border:none; border-radius:50px;
+  padding:14px 44px; font-size:20px; font-weight:bold;
+  font-family:inherit; cursor:pointer;
+  box-shadow: 0 4px 16px rgba(92,156,46,0.35);
+}
+#retry-btn:active { transform:scale(0.94); }
+
+/* 言語切替ボタン */
+#lang-switch {
+  position: fixed;
+  top: clamp(16px, 5.3vw, 20px);
+  left: clamp(16px, 5.3vw, 20px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 50;
+}
+.lang-btn {
+  background: none;
+  border: 2px solid #ddd;
+  border-radius: 14px;
+  padding: 4px 10px;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.2s, border-color 0.2s;
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.lang-btn .flag {
+  font-size: clamp(24px, 7.5vw, 33px);
+  line-height: 1;
+}
+.lang-btn .label {
+  font-size: clamp(13.5px, 3.75vw, 16.5px);
+  color: #666;
+  line-height: 1;
+}
+.lang-btn.active {
+  opacity: 1;
+  border-color: #5c9c2e;
+}
+</style>
+</head>
+<body>
+
+<div id="lang-switch">
+  <button class="lang-btn" id="btn-ja" onclick="setLang('ja')"><span class="flag">🇯🇵</span><span class="label">Japanese</span></button>
+  <button class="lang-btn active" id="btn-vi" onclick="setLang('vi')"><span class="flag">🇻🇳</span><span class="label">Tiếng Việt</span></button>
+</div>
+
+<div id="game">
+  <div id="counter"></div>
+
+  <div id="pod-anchor">
+    <div id="pod-area">
+      <div id="beans-row"></div>
+      <div id="pod-wrap">
+        <img id="pod-img" src="saya.PNG?v=202603111430" alt="">
+        <div id="press-ring"></div>
+      </div>
+      <div id="swipe-hint">← Vuốt sang vỏ tiếp theo →</div>
+    </div>
+  </div>
+
+  <div id="cleared">
+    <div class="cl-icon"><img id="cl-icon-img" src="" alt=""></div>
+    <div class="cl-title">Hoàn thành!</div>
+    <div class="cl-sub">Tất cả đậu đã bay ra!</div>
+    <button id="retry-btn" onclick="resetGame()">Chơi lại</button>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// 顔画像
+// ================================================================
+const FACE_FILES = [
+  'face/IMG_7819.PNG?v=202603111430',
+  'face/IMG_7820.PNG?v=202603111430',
+  'face/IMG_7822.PNG?v=202603111430',
+  'face/IMG_7823.PNG?v=202603111430',
+  'face/IMG_7824.PNG?v=202603111430',
+  'face/IMG_7825.PNG?v=202603111430',
+  'face/IMG_7826.PNG?v=202603111430',
+  'face/IMG_7827.PNG?v=202603111430',
+  'face/IMG_7828.PNG?v=202603111430',
+  'face/IMG_7829.PNG?v=202603111430',
+];
+
+const faceImages = new Array(FACE_FILES.length).fill(null);
+
+FACE_FILES.forEach((src, i) => {
+  const img = new Image();
+  img.onload = () => {
+    faceImages[i] = img;
+    refreshAllBeanFaces();
+  };
+  img.src = src;
+});
+
+function drawFaceOnCanvas(canvas, fi) {
+  const SZ  = canvas.width;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, SZ, SZ);
+
+  const img = faceImages[fi];
+  if (img) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(SZ/2, SZ/2, SZ/2 - 1, 0, Math.PI * 2);
+    ctx.clip();
+    const W = img.naturalWidth, H = img.naturalHeight;
+    const s  = Math.min(W, H);
+    const sx = (W - s) / 2, sy = (H - s) / 2;
+    ctx.drawImage(img, sx, sy, s, s, 0, 0, SZ, SZ);
+    ctx.restore();
+  } else {
+    const g = ctx.createRadialGradient(SZ*.38,SZ*.33,SZ*.08, SZ/2,SZ/2,SZ/2);
+    g.addColorStop(0,'#c8e86a'); g.addColorStop(1,'#5a9018');
+    ctx.beginPath(); ctx.arc(SZ/2,SZ/2,SZ/2-1,0,Math.PI*2);
+    ctx.fillStyle = g; ctx.fill();
+  }
+}
+
+function refreshAllBeanFaces() {
+  document.querySelectorAll('.bean-char canvas').forEach(c => {
+    const fi = parseInt(c.dataset.fi, 10);
+    if (!isNaN(fi)) drawFaceOnCanvas(c, fi);
+  });
+}
+
+// ================================================================
+// Web Audio API — 効果音
+// ================================================================
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function sfxMunyu() {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(130, audioCtx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(58, audioCtx.currentTime + 0.20);
+  g.gain.setValueAtTime(0.38, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.24);
+  o.start(); o.stop(audioCtx.currentTime + 0.24);
+}
+
+function sfxPunyu() {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(300, audioCtx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(540, audioCtx.currentTime + 0.07);
+  o.frequency.exponentialRampToValueAtTime(240, audioCtx.currentTime + 0.22);
+  g.gain.setValueAtTime(0.28, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.26);
+  o.start(); o.stop(audioCtx.currentTime + 0.26);
+}
+
+function sfxPyun() {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(180, audioCtx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(960, audioCtx.currentTime + 0.30);
+  g.gain.setValueAtTime(0.18, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.34);
+  o.start(); o.stop(audioCtx.currentTime + 0.34);
+}
+
+function sfxShu() {
+  if (!audioCtx) return;
+  const sr  = audioCtx.sampleRate;
+  const len = Math.floor(sr * 0.14);
+  const buf = audioCtx.createBuffer(1, len, sr);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random()*2-1) * (1 - i/len);
+  const src = audioCtx.createBufferSource();
+  const flt = audioCtx.createBiquadFilter();
+  const g   = audioCtx.createGain();
+  src.buffer = buf; flt.type = 'highpass'; flt.frequency.value = 2500;
+  src.connect(flt); flt.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(0.34, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.14);
+  src.start();
+}
+
+function sfxFanfare() {
+  if (!audioCtx) return;
+  [
+    [523,0.00],[659,0.12],[784,0.24],
+    [1047,0.36],[1319,0.50],[1047,0.64],[1319,0.74],[1047,0.82]
+  ].forEach(([f, t]) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.type = 'triangle'; o.frequency.value = f;
+    const s = audioCtx.currentTime + t;
+    g.gain.setValueAtTime(0, s);
+    g.gain.linearRampToValueAtTime(0.26, s + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.01, s + 0.40);
+    o.start(s); o.stop(s + 0.42);
+  });
+}
+
+// ================================================================
+// セリフ表示ユーティリティ
+// ================================================================
+function formatSpeech(text) {
+  return text.replace(/\n/g, '<br>');
+}
+
+// ================================================================
+// 日本語セリフ
+// ================================================================
+const SPEECHES_PRESS = [
+  "継続は力なりやで！\nやめたらそこで終わりやぞ！",
+  "失敗は成功のもとや！\n何度でも立ち上がれ！",
+  "時は金なりやで！\n無駄にしてる暇はないで！",
+  "七転び八起きや！\n倒れても起き上がったもん勝ちやで！",
+  "早起きは三文の徳や！\n朝はチャンスの宝庫やで！",
+  "塵も積もれば山となるんや！\n小さい努力を馬鹿にするなよ！",
+  "友は宝やで！\n大切にせんかったら後悔するで！",
+  "石の上にも三年やで！\nすぐ諦めるんはアカン！",
+  "夢は大きく持てや！\n小さい夢なんかもったいないで！",
+  "健康が一番の宝やで！\n体を大切にしいや！",
+  "本を読む者は強いで！\n知恵は武器になるんや！",
+  "感謝の心を忘れるなよ！\nありがとうって言える子は強い！",
+  "嘘はあかんで！\n正直者は最後に勝つんや！",
+  "ご飯を残すんはもったいないで！\n食べ物に感謝しいや！",
+  "自然を大切にせなあかんで！\n地球はみんなのもんやぞ！",
+  "整理整頓は大事やで！\n片づけができる子は頭もええんや！",
+  "挨拶は人の基本やで！\nおはようって言えんのか！",
+  "集中力が全てを変えるんや！\nぼーっとしてたら損やで！",
+  "諦めんことが夢への道やで！\n途中でやめたら何も残らんぞ！",
+  "笑顔は最高の魔法やで！\n笑ってる子に敵はおらんぞ！",
+  "好奇心を大事にしいや！\nなんでやろって思う心が宝やで！",
+  "人に優しくできる子が本物の強者やで！\n強がるだけやったら弱いんや！",
+  "チームワークあってこそや！\n一人でできることなんてたかがしれてるで！",
+  "失敗を恥ずかしがるなよ！\n挑戦した証拠やんか！",
+  "お金は大事に使いや！\nムダ遣いしてたら後で泣くで！",
+  "寝る子は育つんや！\n早く寝いや！",
+  "練習なくして成功なしやで！\n天才もみんな練習してるんやぞ！",
+  "謙虚に生きるんやで！\n自慢話ばかりしてたら嫌われるで！",
+  "先を見て動けや！\n後手に回ったら大変やぞ！",
+  "泣きたいときは泣いたらええで！\n涙は恥ずかしくないんや！",
+  "約束は必ず守れや！\n信用はそうやって積み上げるんやで！",
+  "好きなことを見つけいや！\nそれが生きる力になるんやで！",
+  "困ってる人を助けたれよ！\nそれができる子は本物やで！",
+  "身体を動かすことは大事やで！\n運動不足はあかんぞ！",
+  "礼儀正しい子は得をするんや！\n礼儀を侮るなよ！",
+  "字を丁寧に書きいや！\n雑な字は心の雑さやで！",
+  "食事の前には手を洗えや！\n清潔にすることが健康の基本やで！",
+  "花に水をやるみたいに\n友達の気持ちも育ててやれよ！",
+  "夢を語れる子になれや！\n夢を恥ずかしがるんはもったいないで！",
+  "失敗したら反省して次に活かせや！\n同じ失敗を繰り返すなよ！",
+  "親への感謝を忘れるなよ！\n支えてくれてる人がいるんやで！",
+  "本物の強さは優しさやで！\n意地悪な子はほんまは弱いんやぞ！",
+  "頭の中は使えば使うほど賢くなるんや！\nさぼったらあかんで！",
+  "焦らず着実に進めや！\n急いては事を仕損じるんやで！",
+  "一日一善やで！\n毎日誰かに親切にしてみいや！",
+  "水を大切にしいや！\n地球の水は限りあるんやで！",
+  "ルールは守るためにあるんや！\nわがままは通らんで！",
+  "うまくいかない日もあるで！\nでもそれが人生ってもんやで！",
+  "知らないことは恥ずかしくないで！\n聞けない子の方がもったいないんや！",
+  "目標を持って生きいや！\n目標ない船は漂うだけやで！",
+  "人の話はちゃんと聞けや！\nしゃべるだけじゃ何も学べんで！",
+];
+
+// ================================================================
+// ベトナム語セリフ 300個（職場マナー・安全・コミュニケーション等）
+// ================================================================
+const SPEECHES_PRESS_VI = [
+  // === Chào hỏi & lễ nghi (挨拶・礼儀) ===
+  "Chào buổi sáng!\nHôm nay cũng cố gắng nào!",
+  "Cảm ơn rất nhiều!\nSự giúp đỡ của bạn rất quý giá!",
+  "Xin lỗi vì đã làm phiền!\nTôi sẽ chú ý hơn lần sau!",
+  "Vâng, tôi hiểu rồi!\nTôi sẽ thực hiện ngay!",
+  "Xin chào mọi người!\nChúc một ngày làm việc vui vẻ!",
+  "Tôi đến rồi ạ!\nXin chào tất cả mọi người!",
+  "Tôi về trước nhé!\nHẹn gặp lại ngày mai!",
+  "Rất vui được làm việc cùng!\nCùng nhau cố gắng nhé!",
+  "Cảm ơn đã giúp đỡ!\nTôi rất biết ơn bạn!",
+  "Cho phép tôi hỏi một chút!\nTôi có điều chưa rõ ạ!",
+  "Xin lỗi, làm ơn cho tôi qua!\nCảm ơn bạn rất nhiều!",
+  "Hôm nay mọi người có khỏe không?\nChúc mọi người sức khỏe!",
+  "Chúc một ngày làm việc tốt!\nCùng nhau làm việc tích cực!",
+  "Cảm ơn vì đã chỉ bảo!\nTôi sẽ ghi nhớ và thực hiện!",
+  "Tôi xin phép nghỉ trước!\nCảm ơn mọi người hôm nay!",
+  "Vâng, tôi sẽ làm ngay!\nXin hãy yên tâm!",
+  "Cảm ơn sự quan tâm của bạn!\nTôi rất trân trọng!",
+  "Chào tạm biệt! Hẹn gặp lại!\nChúc buổi chiều vui vẻ!",
+  "Hôm nay nhờ mọi người giúp đỡ!\nTôi sẽ cố gắng hết sức!",
+  "Rất vui được làm quen!\nMong được hợp tác cùng!",
+  "Tôi hiểu, cảm ơn!\nTôi sẽ chú ý thực hiện đúng!",
+  "Xin lỗi vì đã làm bạn chờ!\nTôi sẽ nhanh hơn lần sau!",
+  "Chào buổi chiều!\nCòn một nửa ngày nữa, cố lên!",
+  "Cảm ơn vì hôm nay!\nNhờ mọi người tôi hoàn thành được!",
+  "Tôi sẽ cố gắng hết sức!\nXin hãy chỉ bảo thêm cho tôi!",
+  "Cảm ơn đã tin tưởng tôi!\nTôi sẽ không phụ lòng mọi người!",
+  "Xin hãy chỉ bảo thêm!\nTôi còn nhiều điều cần học!",
+  "Cảm ơn vì đã kiên nhẫn!\nTôi sẽ cải thiện từng ngày!",
+  "Được rồi, tôi sẽ làm!\nXin cứ để tôi lo!",
+  "Xin cảm ơn mọi người!\nNhờ có mọi người tôi mới làm được!",
+  "Chào, bạn có khỏe không?\nHôm nay trông bạn vui vẻ đấy!",
+  "Tôi sẽ báo cáo ngay ạ!\nXin hãy đợi một chút!",
+  "Xin phép được nhờ bạn!\nBạn có thể giúp tôi được không?",
+  "Hôm nay cũng vui vẻ làm việc!\nCùng nhau tạo ra ngày tốt đẹp!",
+  "Cảm ơn vì đã hỗ trợ!\nNhờ bạn mọi việc suôn sẻ hơn!",
+  "Tôi rất biết ơn!\nSự giúp đỡ của bạn rất có ý nghĩa!",
+  "Chào mừng bạn đến!\nChúng tôi rất vui khi có bạn!",
+  "Hôm nay tôi học được nhiều!\nCảm ơn mọi người đã chỉ dạy!",
+  "Cảm ơn vì đã giải thích!\nBây giờ tôi đã hiểu rõ hơn!",
+  "Vâng, tôi nhớ rồi!\nTôi sẽ không quên điều này!",
+  "Một ngày vui vẻ nhé!\nCùng nhau tạo bầu không khí tích cực!",
+  "Xin thất lễ khi làm phiền!\nCảm ơn vì đã lắng nghe!",
+  "Chào, tôi là người mới!\nXin mọi người chỉ bảo thêm!",
+  "Vâng, tôi sẽ cẩn thận!\nCảm ơn vì đã nhắc nhở!",
+  "Hôm nay tôi cũng sẽ cố!\nMỗi ngày một tiến bộ hơn!",
+  "Cảm ơn, bạn cũng vậy!\nChúc bạn một ngày tốt lành!",
+  "Tôi xin phép hỏi ạ!\nCó điều tôi chưa hiểu rõ!",
+  "Xin hãy tiếp tục chỉ bảo tôi!\nTôi vẫn còn nhiều thứ cần học!",
+  "Cảm ơn vì sự chỉ dẫn!\nTôi sẽ áp dụng ngay vào công việc!",
+  "Xin chào và cảm ơn!\nMọi người thật tuyệt vời!",
+
+  // === Đúng giờ (時間厳守) ===
+  "Đúng giờ là tôn trọng nhau!\nHãy luôn đến đúng giờ quy định!",
+  "Đến sớm hơn giờ làm việc!\nChuẩn bị kỹ trước khi bắt đầu!",
+  "Không bao giờ đi trễ!\nHãy lên kế hoạch để đến đúng giờ!",
+  "Báo cáo trước khi đến muộn!\nThông báo sớm để mọi người biết!",
+  "Thời gian là vàng bạc!\nĐừng để thời gian trôi qua vô ích!",
+  "Chuẩn bị sẵn sàng trước giờ làm!\nSẵn sàng ngay từ đầu ngày!",
+  "Đúng giờ thể hiện trách nhiệm!\nNgười có trách nhiệm luôn đúng giờ!",
+  "Nếu trễ, hãy báo ngay!\nĐừng để mọi người lo lắng!",
+  "Không để mọi người chờ!\nThời gian của người khác cũng quý giá!",
+  "Quản lý thời gian thật tốt!\nKế hoạch tốt giúp đúng giờ mọi lúc!",
+  "Đến làm việc đúng giờ!\nĐây là quy tắc cơ bản nhất!",
+  "Trễ giờ ảnh hưởng cả nhóm!\nMột người trễ, cả nhóm bị ảnh hưởng!",
+  "Hẹn giờ trước để không quên!\nCài báo thức ngay từ tối hôm trước!",
+  "Đúng giờ là nền tảng công việc!\nTất cả bắt đầu từ việc đúng giờ!",
+  "Luôn đến trước 5 phút!\nĐó là thói quen của người chuyên nghiệp!",
+  "Trân trọng thời gian của mọi người!\nĐúng giờ là cách thể hiện sự tôn trọng!",
+  "Báo cáo sớm khi có vấn đề!\nThông báo kịp thời giúp giải quyết nhanh hơn!",
+  "Không bao giờ trễ hẹn!\nUy tín được xây dựng qua từng lần đúng giờ!",
+  "Thời gian không thể lấy lại!\nMỗi phút qua đi là mất mãi mãi!",
+  "Đúng giờ là thói quen tốt!\nRèn luyện mỗi ngày để thành thói quen!",
+  "Sắp xếp lịch làm việc cẩn thận!\nKế hoạch rõ ràng giúp tránh trễ giờ!",
+  "Giờ giấc nghiêm túc hàng ngày!\nNhất quán trong việc đúng giờ!",
+  "Không trễ, không vắng mặt!\nĐây là cam kết với công ty và đồng nghiệp!",
+  "Đúng giờ giúp công việc suôn sẻ!\nMọi thứ diễn ra tốt hơn khi đúng giờ!",
+  "Luôn thông báo khi có thay đổi!\nThay đổi lịch phải báo trước kịp thời!",
+  "Tôn trọng lịch làm việc!\nLịch trình là cam kết với tập thể!",
+  "Chuẩn bị kỹ để không bị trễ!\nPhòng bị trước luôn tốt hơn!",
+  "Nếu về sớm, xin phép trước!\nĐừng tự ý rời đi khi chưa được phép!",
+  "Giờ làm là giờ làm!\nTập trung vào công việc trong giờ làm!",
+  "Kiểm tra lịch trình mỗi sáng!\nBắt đầu ngày mới với kế hoạch rõ ràng!",
+  "Đừng để công việc chồng chất!\nHoàn thành đúng hạn để tránh áp lực!",
+  "Phân bổ thời gian hợp lý!\nMỗi công việc đều cần thời gian phù hợp!",
+  "Hoàn thành việc đúng thời hạn!\nĐây là trách nhiệm với đồng nghiệp!",
+  "Ưu tiên công việc quan trọng!\nBiết việc nào cần làm trước, việc nào sau!",
+  "Không lãng phí thời gian làm việc!\nMỗi giờ làm việc đều có giá trị!",
+  "Báo cáo tiến độ đúng hạn!\nGiúp cả nhóm nắm bắt tình hình kịp thời!",
+  "Giờ giải lao là giờ giải lao!\nNghỉ đúng giờ để làm việc hiệu quả hơn!",
+  "Quay lại làm việc đúng giờ!\nKhông kéo dài thời gian nghỉ!",
+  "Không kéo dài giờ giải lao!\nTôn trọng quy định về thời gian nghỉ!",
+  "Đúng giờ mỗi ngày là thành công!\nThành công bắt đầu từ kỷ luật thời gian!",
+  "Thông báo trước ít nhất 1 tiếng!\nĐể mọi người có thể sắp xếp kịp!",
+  "Không tự ý rời chỗ làm!\nPhải báo cáo và được phép trước!",
+  "Nghiêm túc với giờ giấc!\nKỷ luật thời gian = kỷ luật bản thân!",
+  "Thời gian làm việc là tài sản!\nSử dụng hiệu quả mỗi phút làm việc!",
+  "Đúng giờ xây dựng uy tín!\nNgười đúng giờ luôn được tin tưởng hơn!",
+  "Không để đồng nghiệp chờ đợi!\nHãy nghĩ đến người khác khi trễ giờ!",
+  "Hoàn thành công việc trước tan ca!\nĐừng để việc dở dang khi tan ca!",
+  "Lên kế hoạch để đúng thời hạn!\nKế hoạch tốt = kết quả đúng hạn!",
+  "Mỗi phút đều có giá trị!\nSử dụng thời gian một cách có ý nghĩa!",
+  "Đúng giờ là tôn trọng bản thân!\nNgười kỷ luật với bản thân sẽ thành công!",
+
+  // === Quy tắc an toàn (安全ルール) ===
+  "Đội mũ bảo hiểm bắt buộc!\nAn toàn của bạn là quan trọng nhất!",
+  "Đeo găng tay bảo hộ!\nBảo vệ đôi tay - công cụ làm việc của bạn!",
+  "An toàn là trên hết!\nKhông có công việc nào quan trọng hơn an toàn!",
+  "Không bỏ qua quy trình an toàn!\nQuy trình an toàn là để bảo vệ bạn!",
+  "Đọc kỹ hướng dẫn trước khi làm!\nHiểu rõ trước khi bắt tay vào việc!",
+  "Mặc đồ bảo hộ đầy đủ!\nTrang bị đúng cách trước khi làm việc!",
+  "Báo cáo ngay khi phát hiện nguy hiểm!\nMột báo cáo kịp thời có thể cứu nhiều người!",
+  "Không tự ý sửa máy móc!\nHãy để người có chuyên môn xử lý!",
+  "Luôn kiểm tra máy trước khi dùng!\nKiểm tra trước - an toàn sau!",
+  "Giữ khu vực làm việc an toàn!\nMôi trường an toàn = làm việc hiệu quả!",
+  "Không chạy trong khu vực sản xuất!\nĐi bộ cẩn thận để tránh tai nạn!",
+  "Sử dụng đúng công cụ cho công việc!\nCông cụ sai có thể gây nguy hiểm!",
+  "Không đùa giỡn khi làm việc!\nSự tập trung là chìa khóa của an toàn!",
+  "Đọc bảng cảnh báo an toàn!\nBảng cảnh báo là thông điệp quan trọng!",
+  "Không bỏ qua tín hiệu cảnh báo!\nTín hiệu cảnh báo là để bảo vệ bạn!",
+  "Kiểm tra thiết bị bảo hộ hàng ngày!\nThiết bị hỏng không thể bảo vệ bạn!",
+  "An toàn cho mình, an toàn cho mọi người!\nMột người không an toàn ảnh hưởng cả nhóm!",
+  "Không làm việc một mình ở nơi nguy hiểm!\nHãy có người giám sát khi cần thiết!",
+  "Biết vị trí cầu dao điện khẩn cấp!\nChuẩn bị sẵn sàng cho tình huống khẩn cấp!",
+  "Không để dây điện lộn xộn!\nDây điện lộn xộn có thể gây tai nạn!",
+  "Tắt máy khi không sử dụng!\nTiết kiệm điện và tránh tai nạn!",
+  "Không che khuất lối thoát hiểm!\nLối thoát hiểm phải luôn thông thoáng!",
+  "Biết cách dùng bình chữa cháy!\nHọc cách sử dụng khi chưa cần dùng đến!",
+  "Báo cáo tai nạn dù nhỏ!\nTai nạn nhỏ có thể là dấu hiệu của vấn đề lớn!",
+  "Đi đúng đường trong nhà máy!\nĐường đi an toàn được quy định rõ ràng!",
+  "Không mang thức ăn vào khu sản xuất!\nVệ sinh sản xuất là yêu cầu bắt buộc!",
+  "Rửa tay sau khi tiếp xúc hóa chất!\nBảo vệ sức khỏe bắt đầu từ vệ sinh!",
+  "Không hút thuốc trong khu vực cấm!\nTôn trọng quy định để bảo vệ mọi người!",
+  "Kiểm tra xung quanh trước khi hành động!\nNhìn trước, hành động sau!",
+  "An toàn không phải lựa chọn!\nAn toàn là yêu cầu bắt buộc!",
+  "Mang kính bảo hộ khi cần thiết!\nBảo vệ đôi mắt - không thể thay thế!",
+  "Không làm việc khi mệt mỏi quá độ!\nMệt mỏi làm tăng nguy cơ tai nạn!",
+  "Báo cáo thiết bị hỏng ngay lập tức!\nThiết bị hỏng cần được sửa chữa ngay!",
+  "Theo dõi đồng nghiệp xung quanh!\nChúng ta cùng chịu trách nhiệm về an toàn!",
+  "Không bỏ hóa chất bừa bãi!\nHóa chất cần được xử lý đúng cách!",
+  "Giữ bình tĩnh khi xảy ra sự cố!\nBình tĩnh giúp xử lý tình huống tốt hơn!",
+  "Biết quy trình xử lý khẩn cấp!\nChuẩn bị kỹ để ứng phó kịp thời!",
+  "Không dùng điện thoại khi vận hành máy!\nTập trung hoàn toàn khi vận hành máy!",
+  "Luôn có người giám sát khi làm nguy hiểm!\nAn toàn cần được giám sát chặt chẽ!",
+  "An toàn là trách nhiệm của mọi người!\nMỗi người đều có vai trò giữ an toàn!",
+  "Không leo trèo lên nơi nguy hiểm!\nSử dụng thang đúng cách và đúng quy định!",
+  "Bảo quản công cụ cẩn thận!\nCông cụ tốt giúp làm việc an toàn hơn!",
+  "Học và nhớ các ký hiệu an toàn!\nKý hiệu an toàn là ngôn ngữ phổ quát!",
+  "Kiểm tra lại sau khi làm xong!\nXác nhận mọi thứ an toàn trước khi rời đi!",
+  "Báo cáo điều kiện không an toàn!\nMột báo cáo có thể ngăn chặn tai nạn!",
+  "Không tiếp xúc hóa chất khi không có bảo hộ!\nBảo hộ là bảo vệ sức khỏe lâu dài!",
+  "An toàn lao động = cuộc sống hạnh phúc!\nVề nhà an toàn mỗi ngày là điều quan trọng nhất!",
+  "Không vứt rác ra sàn!\nSàn sạch sẽ giúp ngăn ngừa tai nạn trượt ngã!",
+  "Tuân thủ an toàn là bảo vệ bản thân!\nQuy tắc an toàn không phải là gánh nặng!",
+  "Phòng ngừa tai nạn từ đầu!\nTốt hơn là phải xử lý hậu quả sau này!",
+
+  // === Tác phong làm việc (職場マナー) ===
+  "Giữ nơi làm việc gọn gàng!\nMôi trường gọn gàng giúp làm việc hiệu quả!",
+  "Dọn dẹp sau khi xong việc!\nĐể lại nơi làm việc sạch cho người tiếp theo!",
+  "Không để đồ đạc lung tung!\nMỗi thứ có chỗ của nó - hãy đặt đúng chỗ!",
+  "Sắp xếp dụng cụ đúng chỗ!\nDễ tìm, tiết kiệm thời gian làm việc!",
+  "Giữ vệ sinh khu vực làm việc!\nVệ sinh sạch sẽ thể hiện tác phong chuyên nghiệp!",
+  "Tắt đèn khi ra khỏi phòng!\nTiết kiệm năng lượng là trách nhiệm của mọi người!",
+  "Tiết kiệm điện và nước!\nTài nguyên có hạn, hãy sử dụng tiết kiệm!",
+  "Không để đồ ăn trong khu sản xuất!\nVệ sinh và an toàn thực phẩm rất quan trọng!",
+  "Mặc đồng phục đúng quy định!\nĐồng phục thể hiện sự chuyên nghiệp!",
+  "Không dùng điện thoại cá nhân khi làm việc!\nTập trung vào công việc trong giờ làm!",
+  "Đặt đồ vật vào đúng vị trí quy định!\n5S là nền tảng của năng suất!",
+  "Không làm ồn gây phiền đến người khác!\nTôn trọng môi trường làm việc chung!",
+  "Giữ lối đi thông thoáng!\nLối đi thông thoáng giúp di chuyển an toàn!",
+  "Vứt rác đúng nơi quy định!\nPhân loại rác đúng cách từ đầu!",
+  "Không hút thuốc trong khu vực làm việc!\nTôn trọng sức khỏe của mọi người!",
+  "Báo cáo hỏng hóc ngay lập tức!\nKhắc phục sớm tránh gây hậu quả lớn hơn!",
+  "Giữ gìn tài sản công ty!\nTài sản công ty là tài sản chung!",
+  "Không dùng tài sản công ty cho cá nhân!\nTôn trọng ranh giới công việc và cá nhân!",
+  "Đọc và hiểu nội quy công ty!\nNội quy là cam kết khi vào làm việc!",
+  "Tuân thủ quy định của công ty!\nQuy định giúp mọi người làm việc hài hòa!",
+  "Không bàn tán về chuyện riêng tư!\nTôn trọng sự riêng tư của đồng nghiệp!",
+  "Giữ bí mật thông tin công ty!\nThông tin nội bộ không được chia sẻ ra ngoài!",
+  "Làm việc với tinh thần đoàn kết!\nSức mạnh tập thể lớn hơn sức mạnh cá nhân!",
+  "Hỗ trợ đồng nghiệp khi cần!\nGiúp đỡ nhau là nền tảng của đội nhóm!",
+  "Không phân biệt đối xử!\nMọi người đều xứng đáng được tôn trọng!",
+  "Tôn trọng mọi người trong công ty!\nVăn hóa tôn trọng tạo môi trường làm việc tốt!",
+  "Không nói chuyện riêng trong giờ họp!\nHọp là để làm việc, hãy tập trung!",
+  "Đọc email công việc kịp thời!\nThông tin quan trọng có thể nằm trong email!",
+  "Trả lời tin nhắn công việc nhanh chóng!\nPhản hồi nhanh thể hiện sự chuyên nghiệp!",
+  "Không để bàn làm việc lộn xộn!\nBàn làm việc gọn gàng giúp tập trung hơn!",
+  "Sắp xếp hồ sơ cẩn thận!\nHồ sơ ngăn nắp tiết kiệm thời gian tìm kiếm!",
+  "Báo cáo kết quả công việc đúng hạn!\nBáo cáo kịp thời giúp quản lý nắm tình hình!",
+  "Không tự ý thay đổi quy trình!\nMọi thay đổi cần được phê duyệt trước!",
+  "Xin phép trước khi làm việc khác!\nTheo dõi nhiệm vụ được giao là ưu tiên!",
+  "Giữ nụ cười thân thiện!\nNụ cười tạo bầu không khí làm việc tích cực!",
+  "Không để cảm xúc ảnh hưởng công việc!\nChuyên nghiệp nghĩa là kiểm soát cảm xúc!",
+  "Làm việc chuyên nghiệp mỗi ngày!\nChuyên nghiệp không phải lúc nào cũng dễ!",
+  "Không chỉ trích đồng nghiệp trước mặt!\nGóp ý riêng tư và tôn trọng hơn!",
+  "Đưa ra ý kiến một cách tôn trọng!\nÝ kiến tốt cần được diễn đạt đúng cách!",
+  "Tham dự đầy đủ các buổi họp!\nHọp là để cả nhóm đồng bộ thông tin!",
+  "Chuẩn bị kỹ trước buổi họp!\nChuẩn bị kỹ giúp họp ngắn và hiệu quả hơn!",
+  "Không lướt điện thoại trong họp!\nTôn trọng thời gian của người trình bày!",
+  "Ghi chép đầy đủ trong buổi họp!\nGhi chép giúp không bỏ sót thông tin quan trọng!",
+  "Chia sẻ thông tin cần thiết với nhóm!\nThông tin chia sẻ giúp cả nhóm tiến bộ!",
+  "Không giấu thông tin quan trọng!\nMinh bạch thông tin giúp nhóm làm việc tốt hơn!",
+  "Làm đúng vai trò của mình!\nHiểu rõ trách nhiệm và thực hiện tốt!",
+  "Hoàn thành việc được giao!\nCam kết hoàn thành là lời hứa với đồng nghiệp!",
+  "Không đùn đẩy trách nhiệm!\nDũng cảm nhận trách nhiệm khi cần thiết!",
+  "Nhận trách nhiệm khi mắc lỗi!\nThừa nhận lỗi sai là bước đầu để sửa chữa!",
+
+  // === Giao tiếp (コミュニケーション) ===
+  "Hỏi khi không hiểu!\nKhông hỏi mới là vấn đề thực sự!",
+  "Đừng ngại đặt câu hỏi!\nCâu hỏi tốt giúp công việc đúng hướng!",
+  "Lắng nghe chăm chú!\nLắng nghe tốt mới hiểu đúng vấn đề!",
+  "Xác nhận lại những gì đã nghe!\nNhắc lại để đảm bảo hiểu đúng!",
+  "Báo cáo kịp thời cho cấp trên!\nThông tin kịp thời giúp ra quyết định đúng!",
+  "Thông báo trước khi làm!\nThông tin trước giúp tránh nhầm lẫn!",
+  "Liên lạc thường xuyên với nhóm!\nGiao tiếp thường xuyên giữ nhóm đồng bộ!",
+  "Không giả vờ hiểu khi không hiểu!\nGiả vờ hiểu sẽ dẫn đến sai lầm!",
+  "Nói rõ ràng và ngắn gọn!\nThông điệp rõ ràng tránh hiểu nhầm!",
+  "Không ngắt lời người đang nói!\nTôn trọng người nói là tôn trọng ý kiến!",
+  "Xác nhận thông tin trước khi hành động!\nHành động dựa trên thông tin đúng!",
+  "Chia sẻ vấn đề với nhóm!\nCùng nhau giải quyết tốt hơn một mình!",
+  "Không giải quyết một mình khi khó khăn!\nTìm kiếm sự hỗ trợ khi cần thiết!",
+  "Trao đổi cởi mở với đồng nghiệp!\nCởi mở tạo môi trường làm việc thoải mái!",
+  "Nói chuyện thẳng thắn nhưng lịch sự!\nThẳng thắn không có nghĩa là thô lỗ!",
+  "Không hiểu thì hỏi ngay!\nHỏi ngay tốt hơn là làm sai!",
+  "Báo cáo sự cố ngay khi xảy ra!\nBáo cáo sớm giúp xử lý kịp thời!",
+  "Không để vấn đề tích tụ!\nGiải quyết sớm trước khi trở thành khủng hoảng!",
+  "Giao tiếp bằng ngôn ngữ phù hợp!\nChọn cách diễn đạt phù hợp với hoàn cảnh!",
+  "Kiểm tra thông tin trước khi truyền đạt!\nThông tin sai gây hiểu lầm và tổn thất!",
+  "Hỏi rõ trước khi bắt đầu việc!\nHiểu rõ yêu cầu trước khi bắt tay vào làm!",
+  "Nhắc lại để xác nhận hiểu đúng!\nXác nhận giúp tránh sai sót không đáng có!",
+  "Không bỏ qua thông báo từ quản lý!\nThông báo từ quản lý có thể rất quan trọng!",
+  "Đặt câu hỏi cụ thể, rõ ràng!\nCâu hỏi cụ thể nhận được câu trả lời hữu ích hơn!",
+  "Phản hồi kịp thời khi được hỏi!\nPhản hồi chậm làm chậm tiến độ cả nhóm!",
+  "Giao tiếp chuyên nghiệp qua email!\nEmail công việc cần lịch sự và chuyên nghiệp!",
+  "Học tiếng Nhật để giao tiếp tốt hơn!\nNgôn ngữ mở ra nhiều cơ hội hơn!",
+  "Hỏi nếu cần giải thích thêm!\nĐừng ngại yêu cầu giải thích thêm!",
+  "Báo cáo lỗi sai sớm hơn là muộn!\nBáo cáo sớm giúp khắc phục kịp thời!",
+  "Không im lặng khi gặp vấn đề!\nIm lặng làm vấn đề trở nên tệ hơn!",
+  "Trao đổi với nhóm thường xuyên!\nGiao tiếp thường xuyên giữ nhóm gắn kết!",
+  "Nghe và học từ kinh nghiệm người khác!\nMỗi người có kinh nghiệm quý báu riêng!",
+  "Không phản ứng bằng cảm xúc!\nBình tĩnh giúp giải quyết vấn đề tốt hơn!",
+  "Suy nghĩ trước khi nói!\nLời nói ra không lấy lại được!",
+  "Giao tiếp bằng sự tôn trọng!\nTôn trọng là nền tảng của giao tiếp tốt!",
+  "Không to tiếng khi bất đồng!\nBất đồng cần giải quyết bình tĩnh!",
+  "Giải quyết mâu thuẫn bằng đối thoại!\nĐối thoại tốt hơn xung đột!",
+  "Tìm kiếm sự đồng thuận!\nĐồng thuận giúp đội nhóm tiến bộ!",
+  "Chia sẻ ý tưởng tích cực!\nÝ tưởng tốt cần được chia sẻ!",
+  "Không phê bình mà không có giải pháp!\nPhê bình xây dựng kèm giải pháp cụ thể!",
+  "Lắng nghe ý kiến của tất cả!\nMỗi người đều có quan điểm đáng nghe!",
+  "Giao tiếp giúp đội nhóm mạnh hơn!\nĐội nhóm giao tiếp tốt làm việc hiệu quả hơn!",
+  "Không nói chuyện riêng trong giờ làm!\nTôn trọng thời gian làm việc của mọi người!",
+  "Báo cáo thành công cũng quan trọng!\nThành công cần được chia sẻ để học hỏi!",
+  "Chia sẻ kiến thức với đồng nghiệp!\nKiến thức chia sẻ giúp cả nhóm tiến bộ!",
+  "Học hỏi từ phản hồi!\nPhản hồi là món quà giúp bạn tốt hơn!",
+  "Không từ chối nhận phản hồi!\nPhản hồi dù khó nghe cũng giúp bạn phát triển!",
+  "Giao tiếp hiệu quả = làm việc hiệu quả!\nGiao tiếp tốt là kỹ năng quan trọng nhất!",
+  "Cùng nhau tiến bộ mỗi ngày!\nĐội nhóm tốt cùng nhau học hỏi và phát triển!",
+
+  // === Quản lý sức khỏe (体調管理) ===
+  "Đừng cố làm khi ốm!\nSức khỏe quan trọng hơn bất kỳ công việc nào!",
+  "Báo cáo sớm khi không khỏe!\nBáo cáo kịp thời giúp sắp xếp công việc phù hợp!",
+  "Nghỉ ngơi đầy đủ!\nNghỉ ngơi tốt giúp làm việc hiệu quả hơn!",
+  "Ăn uống điều độ!\nChế độ ăn tốt là nền tảng của sức khỏe!",
+  "Ngủ đủ giấc mỗi đêm!\nGiấc ngủ tốt giúp não bộ hoạt động hiệu quả!",
+  "Không làm việc khi đang sốt!\nSốt cần nghỉ ngơi để phục hồi nhanh hơn!",
+  "Uống đủ nước mỗi ngày!\nMất nước làm giảm hiệu suất làm việc!",
+  "Tập thể dục thường xuyên!\nVận động tốt cho cả thể chất và tinh thần!",
+  "Quản lý stress tốt!\nStress kéo dài ảnh hưởng đến sức khỏe và công việc!",
+  "Không lạm dụng thuốc đau đầu!\nHãy tìm nguyên nhân gốc rễ của vấn đề!",
+  "Báo cáo chấn thương dù nhỏ!\nChấn thương nhỏ không được xử lý có thể trở nên nghiêm trọng!",
+  "Đừng chịu đựng đau một mình!\nHãy chia sẻ và tìm kiếm sự giúp đỡ!",
+  "Nghỉ ngơi trong giờ giải lao!\nGiờ giải lao là để phục hồi năng lượng!",
+  "Không bỏ bữa sáng!\nBữa sáng là nhiên liệu cho cả ngày làm việc!",
+  "Giữ tinh thần lạc quan!\nTinh thần tích cực giúp vượt qua khó khăn!",
+  "Tìm kiếm sự giúp đỡ khi cần!\nKhông ai phải đối mặt với khó khăn một mình!",
+  "Không uống rượu trước giờ làm!\nRượu làm giảm tập trung và tăng nguy cơ tai nạn!",
+  "Kiểm tra sức khỏe định kỳ!\nPhát hiện sớm giúp điều trị kịp thời!",
+  "Chú ý đến cơ thể của mình!\nCơ thể luôn gửi tín hiệu khi có vấn đề!",
+  "Không làm việc quá giờ liên tục!\nLàm việc quá sức dẫn đến kiệt sức!",
+  "Thông báo khi cần nghỉ ốm!\nNghỉ để hồi phục tốt hơn là đi làm trong trạng thái ốm!",
+  "Cân bằng công việc và cuộc sống!\nCân bằng là chìa khóa của hạnh phúc lâu dài!",
+  "Giữ tư thế làm việc đúng!\nTư thế xấu gây đau lưng và các vấn đề sức khỏe!",
+  "Nghỉ mắt khi làm việc với máy tính!\nQuy tắc 20-20-20 giúp bảo vệ mắt!",
+  "Không hút thuốc vì sức khỏe!\nHút thuốc ảnh hưởng đến bạn và người xung quanh!",
+  "Ăn thực phẩm bổ dưỡng!\nThực phẩm tốt cung cấp năng lượng và dưỡng chất!",
+  "Không bỏ qua triệu chứng bất thường!\nTriệu chứng lạ cần được kiểm tra y tế!",
+  "Đến gặp bác sĩ khi cần!\nBác sĩ là người có thể giúp bạn tốt nhất!",
+  "Sức khỏe tốt = làm việc tốt!\nSức khỏe là nền tảng của mọi thành công!",
+  "Không che giấu bệnh tình!\nChe giấu bệnh có thể gây nguy hiểm hơn!",
+  "Quản lý thời gian để tránh stress!\nKế hoạch tốt giảm thiểu áp lực không cần thiết!",
+  "Nghỉ ngơi phục hồi trước khi quay lại!\nHồi phục hoàn toàn trước khi trở lại làm việc!",
+  "Chăm sóc sức khỏe tâm thần!\nSức khỏe tâm thần quan trọng như sức khỏe thể chất!",
+  "Chia sẻ áp lực với người tin tưởng!\nNói chuyện giúp giảm bớt gánh nặng!",
+  "Không bỏ qua cảnh báo của cơ thể!\nCơ thể luôn biết khi nào cần nghỉ ngơi!",
+  "Giữ ấm trong thời tiết lạnh!\nPhòng bệnh hơn chữa bệnh!",
+  "Đeo khẩu trang khi cần thiết!\nBảo vệ bản thân và những người xung quanh!",
+  "Rửa tay thường xuyên!\nVệ sinh tay là cách đơn giản nhất để phòng bệnh!",
+  "Ngăn ngừa bệnh lây lan!\nMột người khỏe mạnh bảo vệ cả nhóm!",
+  "Bảo vệ sức khỏe là bảo vệ gia đình!\nGia đình cần bạn khỏe mạnh trở về mỗi ngày!",
+  "Không để mệt mỏi tích lũy!\nNghỉ ngơi kịp thời trước khi quá mệt!",
+  "Làm nhẹ nhàng hơn khi cần!\nLắng nghe cơ thể và điều chỉnh cường độ làm việc!",
+  "Báo cáo stress cho quản lý!\nQuản lý có thể hỗ trợ khi bạn gặp khó khăn!",
+  "Không làm việc liên tục không nghỉ!\nNghỉ ngắn 5-10 phút giúp duy trì năng suất!",
+  "Uống vitamin và bổ sung dinh dưỡng!\nCơ thể cần đủ dưỡng chất để hoạt động tốt!",
+  "Theo dõi sức khỏe hàng ngày!\nChú ý đến sức khỏe mỗi ngày giúp phát hiện vấn đề sớm!",
+  "Sức khỏe là tài sản quý nhất!\nKhông có gì quan trọng hơn sức khỏe của bạn!",
+  "Không ngại xin nghỉ khi cần!\nNghỉ khi cần thiết là quyết định sáng suốt!",
+  "Chăm sóc bản thân để làm việc tốt!\nBạn không thể rót nước từ chiếc cốc rỗng!",
+  "Khỏe mạnh, hạnh phúc, làm việc tốt!\nBa yếu tố này luôn gắn liền với nhau!"
+];
+
+// ================================================================
+// 言語
+// ================================================================
+let currentLang = 'vi';
+
+const STRINGS = {
+  ja: {
+    swipeHint:    '← スワイプして次の鞘へ →',
+    clearedTitle: '全クリア！',
+    clearedSub:   '全部の枝豆がとびだした！',
+    retryBtn:     'もう一度',
+  },
+  vi: {
+    swipeHint:    '← Vuốt sang vỏ tiếp theo →',
+    clearedTitle: 'Hoàn thành!',
+    clearedSub:   'Tất cả đậu đã bay ra!',
+    retryBtn:     'Chơi lại',
+  }
+};
+
+function setLang(lang) {
+  currentLang = lang;
+  document.getElementById('btn-ja').classList.toggle('active', lang === 'ja');
+  document.getElementById('btn-vi').classList.toggle('active', lang === 'vi');
+  document.getElementById('swipe-hint').textContent = STRINGS[lang].swipeHint;
+  document.querySelector('#cleared .cl-title').textContent = STRINGS[lang].clearedTitle;
+  document.querySelector('#cleared .cl-sub').textContent   = STRINGS[lang].clearedSub;
+  document.getElementById('retry-btn').textContent = STRINGS[lang].retryBtn;
+  document.title = lang === 'ja' ? '枝豆ゲーム' : 'Trò Chơi Đậu';
+  updateCounter();
+}
+
+// ================================================================
+// ゲーム状態
+// ================================================================
+const TOTAL_PODS   = 5;
+const POD_SIZE     = 3;
+let podsDone       = 0;
+let currentPodSize = POD_SIZE;
+let beanItems      = [];
+let beansFlown     = 0;
+let gamePhase      = 'idle';
+let pressTimer     = null;
+let totalClears    = 0;
+let faceInterval   = null;
+
+// ================================================================
+// 初期化
+// ================================================================
+function resetGame() {
+  clearFaceInterval();
+  document.getElementById('cleared').classList.remove('show');
+  podsDone = 0;
+  loadPod(true);
+}
+
+function loadPod(isFirst) {
+  gamePhase     = 'idle';
+  beansFlown    = 0;
+  beanItems     = [];
+  currentPodSize = POD_SIZE;
+  renderScene();
+  updateCounter();
+
+  if (!isFirst) {
+    const area = document.getElementById('pod-area');
+    area.classList.add('in-right');
+    area.addEventListener('animationend', () => area.classList.remove('in-right'), { once:true });
+  }
+}
+
+// ================================================================
+// シーン描画
+// ================================================================
+function renderScene() {
+  const vw    = window.innerWidth;
+  const podW  = Math.min(400, Math.floor(vw * 0.92));
+  const beanSz = Math.min(91, Math.floor(vw * 0.175));
+
+  document.getElementById('pod-img').style.width = podW + 'px';
+
+  const podWrap = document.getElementById('pod-wrap');
+  podWrap.ontouchstart = onPodTouchStart;
+  podWrap.onmousedown  = onPodMouseDown;
+
+  const rowEl = document.getElementById('beans-row');
+  rowEl.innerHTML = '';
+
+  const shuffled = [...Array(FACE_FILES.length).keys()].sort(() => Math.random() - 0.5);
+
+  for (let i = 0; i < POD_SIZE; i++) {
+    const item = makeBeanChar(beanSz, shuffled[i % shuffled.length], i);
+    rowEl.appendChild(item.el);
+    beanItems.push(item);
+  }
+
+  document.getElementById('swipe-hint').classList.remove('show');
+}
+
+// ================================================================
+// 豆キャラ生成
+// ================================================================
+function makeBeanChar(size, faceIdx, beanIndex) {
+  const wrap = document.createElement('div');
+  wrap.className = 'bean-char';
+  const hideY = size + 20;
+  wrap.style.cssText = `opacity:0; transform:translateY(${hideY}px) scale(0.3); pointer-events:none;`;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'speech-bubble';
+  bubble.style.setProperty('writing-mode', 'horizontal-tb', 'important');
+  bubble.style.setProperty('-webkit-writing-mode', 'horizontal-tb', 'important');
+  bubble.style.setProperty('text-orientation', 'mixed', 'important');
+  if (POD_SIZE > 1) {
+    if (beanIndex === 0) bubble.classList.add('to-right');
+    else if (beanIndex === POD_SIZE - 1) bubble.classList.add('to-left');
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size * 6;
+  canvas.style.cssText = `width:${size}px; height:${size}px;`;
+  canvas.dataset.fi = faceIdx;
+  drawFaceOnCanvas(canvas, faceIdx);
+
+  wrap.appendChild(bubble);
+  wrap.appendChild(canvas);
+
+  const fly = (e) => { e?.preventDefault(); e?.stopPropagation(); tapBean(wrap, beanIndex); };
+  wrap.addEventListener('touchend', fly, { passive:false });
+  wrap.addEventListener('click', fly);
+
+  return { el:wrap, revealed:false, flown:false };
+}
+
+// ================================================================
+// 鞘のタッチ処理
+// ================================================================
+function getTouchedZone(clientX) {
+  const podRect = document.getElementById('pod-wrap').getBoundingClientRect();
+  const relX = (clientX - podRect.left) / podRect.width;
+  const clamped = Math.max(0, Math.min(0.9999, relX));
+  return Math.floor(clamped * POD_SIZE);
+}
+
+function onPodTouchStart(e) {
+  e.preventDefault();
+  initAudio();
+  const t = e.touches[0];
+  const sx = t.clientX, sy = t.clientY;
+
+  if (gamePhase === 'swipeable') {
+    document.ontouchend = (ev) => {
+      document.ontouchend = null;
+      const tt = ev.changedTouches[0];
+      const dx = tt.clientX - sx, dy = tt.clientY - sy;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) launchPod(dx > 0 ? 'right' : 'left');
+    };
+    return;
+  }
+  const zone = getTouchedZone(sx);
+  beginPress(zone);
+  document.ontouchend = () => { endPress(); document.ontouchend = null; };
+}
+
+function onPodMouseDown(e) {
+  initAudio();
+  const sx = e.clientX;
+  if (gamePhase === 'swipeable') {
+    document.onmouseup = (ev) => {
+      document.onmouseup = null;
+      const dx = ev.clientX - sx;
+      if (Math.abs(dx) > 50) launchPod(dx > 0 ? 'right' : 'left');
+    };
+    return;
+  }
+  const zone = getTouchedZone(sx);
+  beginPress(zone);
+  document.onmouseup = () => { endPress(); document.onmouseup = null; };
+}
+
+function beginPress(zone) {
+  if (gamePhase !== 'idle') return;
+  const item = beanItems[zone];
+  if (!item || item.revealed || item.flown) return;
+  sfxMunyu();
+  const ring = document.getElementById('press-ring');
+  ring.classList.remove('running');
+  void ring.offsetWidth;
+  ring.classList.add('running');
+  pressTimer = setTimeout(() => peekBeanAtIndex(zone), 600);
+}
+
+function endPress() {
+  clearTimeout(pressTimer);
+  document.getElementById('press-ring').classList.remove('running');
+}
+
+// ================================================================
+// 豆を1個だけひょっこり出す
+// ================================================================
+function peekBeanAtIndex(index) {
+  if (gamePhase !== 'idle') return;
+  const item = beanItems[index];
+  if (!item || item.revealed || item.flown) return;
+
+  gamePhase = 'showing';
+  item.revealed = true;
+  document.getElementById('press-ring').classList.remove('running');
+
+  const pw = document.getElementById('pod-wrap');
+  pw.classList.add('pod-shake');
+  setTimeout(() => pw.classList.remove('pod-shake'), 400);
+
+  sfxPunyu();
+
+  const { el } = item;
+  el.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease';
+  el.style.opacity    = '1';
+  el.style.transform  = 'translateY(0) scale(1)';
+  el.style.pointerEvents = 'auto';
+
+  const bubble = el.querySelector('.speech-bubble');
+  bubble.style.setProperty('writing-mode', 'horizontal-tb', 'important');
+  bubble.style.setProperty('-webkit-writing-mode', 'horizontal-tb', 'important');
+  const speeches = currentLang === 'ja' ? SPEECHES_PRESS : SPEECHES_PRESS_VI;
+  bubble.innerHTML = formatSpeech(speeches[Math.floor(Math.random() * speeches.length)]);
+  setTimeout(() => {
+    bubble.classList.add('show');
+    setTimeout(() => bubble.classList.remove('show'), 4032);
+  }, 150);
+}
+
+// ================================================================
+// 豆をタップ → 上方向に飛んでいく
+// ================================================================
+function tapBean(el, beanIndex) {
+  if (gamePhase !== 'showing') return;
+  const item = beanItems[beanIndex];
+  if (!item || item.flown) return;
+  item.flown = true;
+  item.revealed = false;
+  el.style.pointerEvents = 'none';
+
+  gamePhase = 'flying';
+
+  const bubble = el.querySelector('.speech-bubble');
+  bubble.classList.remove('show');
+
+  sfxPyun();
+
+  const spread   = Math.random() * 120 - 60;
+  const angleDeg = -90 + spread;
+  const rad      = angleDeg * Math.PI / 180;
+  const dist     = 700 + Math.random() * 300;
+  const fx       = Math.cos(rad) * dist;
+  const fy       = Math.sin(rad) * dist;
+  const fr       = (Math.random() < 0.5 ? 1 : -1) * (Math.random() * 540 + 270);
+
+  el.style.transition = 'none';
+  el.style.setProperty('--fx', fx + 'px');
+  el.style.setProperty('--fy', fy + 'px');
+  el.style.setProperty('--fr', fr + 'deg');
+  el.style.animation = 'fly-out 0.7s cubic-bezier(0.25,0.46,0.45,0.94) forwards';
+
+  setTimeout(() => {
+    el.style.visibility = 'hidden';
+    beansFlown++;
+    updateCounter();
+
+    if (beansFlown >= currentPodSize) {
+      onAllBeansGone();
+    } else {
+      gamePhase = 'idle';
+    }
+  }, 700);
+}
+
+function onAllBeansGone() {
+  gamePhase = 'swipeable';
+  document.getElementById('swipe-hint').textContent = STRINGS[currentLang].swipeHint;
+  setTimeout(() => document.getElementById('swipe-hint').classList.add('show'), 300);
+}
+
+// ================================================================
+// 鞘スワイプ → 次へ
+// ================================================================
+function launchPod(dir) {
+  if (gamePhase !== 'swipeable') return;
+  gamePhase = 'transitioning';
+  sfxShu();
+  document.getElementById('swipe-hint').classList.remove('show');
+
+  const area = document.getElementById('pod-area');
+  area.classList.add(dir === 'right' ? 'out-right' : 'out-left');
+
+  area.addEventListener('animationend', () => {
+    area.className = '';
+    podsDone++;
+
+    if (podsDone >= TOTAL_PODS) {
+      sfxFanfare();
+      totalClears++;
+      showClearScreen();
+      return;
+    }
+
+    loadPod(false);
+
+    requestAnimationFrame(() => {
+      area.classList.add(dir === 'right' ? 'in-left' : 'in-right');
+      area.addEventListener('animationend', () => { area.className = ''; }, { once:true });
+    });
+  }, { once:true });
+}
+
+// ================================================================
+// クリア画面表示
+// ================================================================
+function showClearScreen() {
+  const img = document.getElementById('cl-icon-img');
+
+  if (totalClears % 3 === 0) {
+    clearFaceInterval();
+    img.src = 'clear.png';
+    img.style.borderRadius = '0';
+    img.style.boxShadow = 'none';
+  } else {
+    img.style.borderRadius = '50%';
+    img.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
+    const faces = FACE_FILES.map(f => f.split('?')[0]);
+    let idx = Math.floor(Math.random() * faces.length);
+    img.src = faces[idx];
+    faceInterval = setInterval(() => {
+      idx = (idx + 1 + Math.floor(Math.random() * (faces.length - 1))) % faces.length;
+      img.src = faces[idx];
+    }, 150);
+  }
+
+  setTimeout(() => document.getElementById('cleared').classList.add('show'), 200);
+}
+
+function clearFaceInterval() {
+  if (faceInterval) { clearInterval(faceInterval); faceInterval = null; }
+}
+
+// ================================================================
+// カウンター
+// ================================================================
+function updateCounter() {
+  document.getElementById('counter').innerHTML =
+    `<img src="saya.PNG" class="counter-img"> ${podsDone+1} / ${TOTAL_PODS}<br><img src="mame1.png" class="counter-img counter-img-mame"> ${currentPodSize - beansFlown}`;
+}
+
+// ================================================================
+// スタート
+// ================================================================
+document.addEventListener('touchstart', initAudio, { once:true });
+document.addEventListener('mousedown',  initAudio, { once:true });
+
+resetGame();
+</script>
+</body>
+</html>
