@@ -480,8 +480,9 @@ function sfxFanfare() {
 // ================================================================
 // Web Speech API — 日本語読み上げ
 // ================================================================
-let synthReady = false;
 let jaVoice = null;
+// ジェスチャーハンドラ内で事前選択したセリフを保持する
+let pendingSpeech = null;
 
 function loadVoices() {
   const voices = speechSynthesis.getVoices();
@@ -495,14 +496,6 @@ function loadVoices() {
 if (window.speechSynthesis) {
   speechSynthesis.onvoiceschanged = loadVoices;
   loadVoices();
-}
-
-function initSpeech() {
-  if (synthReady || !window.speechSynthesis) return;
-  synthReady = true;
-  // iOS用：空の発話で初期化
-  const u = new SpeechSynthesisUtterance('');
-  speechSynthesis.speak(u);
 }
 
 function speakJapanese(text) {
@@ -986,7 +979,6 @@ function getTouchedZone(clientX) {
 function onPodTouchStart(e) {
   e.preventDefault();
   initAudio();
-  initSpeech();
   const t = e.touches[0];
   const sx = t.clientX, sy = t.clientY;
 
@@ -999,6 +991,12 @@ function onPodTouchStart(e) {
     };
     return;
   }
+  // iOS: speechSynthesis.speak() はジェスチャーハンドラ内で直接呼ぶ必要がある
+  // setTimeout 内から呼ぶと iOS Safari/Chrome で無視される
+  if (gamePhase === 'idle') {
+    pendingSpeech = SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
+    speakJapanese(pendingSpeech.ja);
+  }
   const zone = getTouchedZone(sx);
   beginPress(zone);
   document.ontouchend = () => { endPress(); document.ontouchend = null; };
@@ -1006,7 +1004,6 @@ function onPodTouchStart(e) {
 
 function onPodMouseDown(e) {
   initAudio();
-  initSpeech();
   const sx = e.clientX;
   if (gamePhase === 'swipeable') {
     document.onmouseup = (ev) => {
@@ -1015,6 +1012,10 @@ function onPodMouseDown(e) {
       if (Math.abs(dx) > 50) launchPod(dx > 0 ? 'right' : 'left');
     };
     return;
+  }
+  if (gamePhase === 'idle') {
+    pendingSpeech = SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
+    speakJapanese(pendingSpeech.ja);
   }
   const zone = getTouchedZone(sx);
   beginPress(zone);
@@ -1065,9 +1066,11 @@ function peekBeanAtIndex(index) {
   const bubble = el.querySelector('.speech-bubble');
   bubble.style.setProperty('writing-mode', 'horizontal-tb', 'important');
   bubble.style.setProperty('-webkit-writing-mode', 'horizontal-tb', 'important');
-  const speech = SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
+  // ジェスチャーハンドラ内で事前選択・読み上げ済みのセリフを使う
+  const speech = pendingSpeech ?? SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
+  pendingSpeech = null;
   bubble.innerHTML = formatSpeech(currentLang === 'ja' ? speech.ja : speech.vi);
-  speakJapanese(speech.ja);
+  // speakJapanese はタッチ/クリックハンドラ内で既に呼び済み（iOS対応）
   setTimeout(() => {
     bubble.classList.add('show');
     setTimeout(() => bubble.classList.remove('show'), 8064);
