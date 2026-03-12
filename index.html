@@ -401,13 +401,16 @@ function refreshAllBeanFaces() {
 // ================================================================
 let audioCtx = null;
 
+// 原因切り分け用：false にすると効果音をすべてOFFにして読み上げだけ動作確認できる
+const SFX_ENABLED = false;
+
 function initAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
 function sfxMunyu() {
-  if (!audioCtx) return;
+  if (!audioCtx || !SFX_ENABLED) return;
   const o = audioCtx.createOscillator(), g = audioCtx.createGain();
   o.connect(g); g.connect(audioCtx.destination);
   o.type = 'sine';
@@ -419,7 +422,7 @@ function sfxMunyu() {
 }
 
 function sfxPunyu() {
-  if (!audioCtx) return;
+  if (!audioCtx || !SFX_ENABLED) return;
   const o = audioCtx.createOscillator(), g = audioCtx.createGain();
   o.connect(g); g.connect(audioCtx.destination);
   o.type = 'sine';
@@ -432,7 +435,7 @@ function sfxPunyu() {
 }
 
 function sfxPyun() {
-  if (!audioCtx) return;
+  if (!audioCtx || !SFX_ENABLED) return;
   const o = audioCtx.createOscillator(), g = audioCtx.createGain();
   o.connect(g); g.connect(audioCtx.destination);
   o.type = 'sawtooth';
@@ -444,7 +447,7 @@ function sfxPyun() {
 }
 
 function sfxShu() {
-  if (!audioCtx) return;
+  if (!audioCtx || !SFX_ENABLED) return;
   const sr  = audioCtx.sampleRate;
   const len = Math.floor(sr * 0.14);
   const buf = audioCtx.createBuffer(1, len, sr);
@@ -461,7 +464,7 @@ function sfxShu() {
 }
 
 function sfxFanfare() {
-  if (!audioCtx) return;
+  if (!audioCtx || !SFX_ENABLED) return;
   [
     [523,0.00],[659,0.12],[784,0.24],
     [1047,0.36],[1319,0.50],[1047,0.64],[1319,0.74],[1047,0.82]
@@ -483,6 +486,8 @@ function sfxFanfare() {
 let jaVoice = null;
 // ジェスチャーハンドラ内で事前選択したセリフを保持する
 let pendingSpeech = null;
+// AudioContext と SpeechSynthesis の初期化が完了しているか
+let audioSpeechReady = false;
 
 function loadVoices() {
   const voices = speechSynthesis.getVoices();
@@ -978,6 +983,23 @@ function getTouchedZone(clientX) {
 
 function onPodTouchStart(e) {
   e.preventDefault();
+
+  // ── 1回目のタップ：AudioContext と SpeechSynthesis を初期化するだけ ──
+  // iOS では AudioContext と SpeechSynthesis を同一ジェスチャーで同時起動すると
+  // オーディオセッションが競合して読み上げがブロックされる。
+  // そのため初回タップは初期化専用とし、ゲーム操作は2回目以降から開始する。
+  if (!audioSpeechReady) {
+    audioSpeechReady = true;
+    initAudio();
+    if (window.speechSynthesis) {
+      const u = new SpeechSynthesisUtterance('');
+      speechSynthesis.speak(u);
+      speechSynthesis.cancel();
+    }
+    return;
+  }
+
+  // ── 2回目以降：通常のゲーム操作 ──
   initAudio();
   const t = e.touches[0];
   const sx = t.clientX, sy = t.clientY;
@@ -992,7 +1014,6 @@ function onPodTouchStart(e) {
     return;
   }
   // iOS: speechSynthesis.speak() はジェスチャーハンドラ内で直接呼ぶ必要がある
-  // setTimeout 内から呼ぶと iOS Safari/Chrome で無視される
   if (gamePhase === 'idle') {
     pendingSpeech = SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
     speakJapanese(pendingSpeech.ja);
