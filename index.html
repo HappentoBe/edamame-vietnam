@@ -1256,10 +1256,11 @@ document.addEventListener('mousedown',  initAudio, { once:true });
     if (dismissed) return;
     dismissed = true;
     e.preventDefault();
-    const dummy = new Audio('audio/001.mp3');
-    dummy.volume = 0;
-    dummy.play().catch(() => {});
+    // AudioContextだけ初期化（音声は流さない）
     initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
     splash.style.transition = 'opacity 0.5s ease';
     splash.style.opacity = '0';
     setTimeout(() => splash.remove(), 600);
