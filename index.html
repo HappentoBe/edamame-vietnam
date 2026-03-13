@@ -312,9 +312,50 @@ body {
   opacity: 1;
   border-color: #5c9c2e;
 }
+
+/* スプラッシュ画面 */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 5vw, 36px);
+  opacity: 0;
+  animation: splash-fadein 0.8s ease forwards;
+  transition: opacity 0.5s ease;
+  cursor: pointer;
+}
+#splash.out {
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes splash-fadein {
+  to { opacity: 1; }
+}
+#splash-saya {
+  width: clamp(160px, 55vw, 320px);
+  height: auto;
+  display: block;
+}
+#splash-text {
+  font-size: clamp(18px, 5.5vw, 28px);
+  font-weight: bold;
+  color: #5c9c2e;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
 </style>
 </head>
 <body>
+
+<div id="splash">
+  <img id="splash-saya" src="saya.PNG" alt="">
+  <div id="splash-text">Nhấn để bắt đầu</div>
+</div>
 
 <div id="lang-switch">
   <button class="lang-btn" id="btn-ja" onclick="setLang('ja')"><span class="flag">🇯🇵</span><span class="label">Japanese</span></button>
@@ -348,16 +389,19 @@ body {
 // 顔画像
 // ================================================================
 const FACE_FILES = [
-  'face/IMG_7819.PNG?v=202603111430',
-  'face/IMG_7820.PNG?v=202603111430',
-  'face/IMG_7822.PNG?v=202603111430',
-  'face/IMG_7823.PNG?v=202603111430',
-  'face/IMG_7824.PNG?v=202603111430',
-  'face/IMG_7825.PNG?v=202603111430',
-  'face/IMG_7826.PNG?v=202603111430',
-  'face/IMG_7827.PNG?v=202603111430',
-  'face/IMG_7828.PNG?v=202603111430',
-  'face/IMG_7829.PNG?v=202603111430',
+  'face1/無題43_20260313151810.PNG',
+  'face1/無題43_20260313151842.PNG',
+  'face1/無題43_20260313151936.PNG',
+  'face1/無題43_20260313152007.PNG',
+  'face1/無題43_20260313152048.PNG',
+  'face1/無題43_20260313152111.PNG',
+  'face1/無題43_20260313152220.PNG',
+  'face1/無題43_20260313152625.PNG',
+  'face1/無題43_20260313152729.PNG',
+  'face1/無題43_20260313152809.PNG',
+  'face1/無題43_20260313152933.PNG',
+  'face1/無題43_20260313153018.PNG',
+  'face1/無題43_20260313153129.PNG',
 ];
 
 const faceImages = new Array(FACE_FILES.length).fill(null);
@@ -372,25 +416,23 @@ FACE_FILES.forEach((src, i) => {
 });
 
 function drawFaceOnCanvas(canvas, fi) {
-  const SZ  = canvas.width;
+  const CW = canvas.width;
+  const CH = canvas.height;
   const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, SZ, SZ);
+  ctx.clearRect(0, 0, CW, CH);
 
   const img = faceImages[fi];
   if (img) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(SZ/2, SZ/2, SZ/2 - 1, 0, Math.PI * 2);
+    ctx.ellipse(CW/2, CH/2, CW/2 - 1, CH/2 - 1, 0, 0, Math.PI * 2);
     ctx.clip();
-    const W = img.naturalWidth, H = img.naturalHeight;
-    const s  = Math.min(W, H);
-    const sx = (W - s) / 2, sy = (H - s) / 2;
-    ctx.drawImage(img, sx, sy, s, s, 0, 0, SZ, SZ);
+    ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, CW, CH);
     ctx.restore();
   } else {
-    const g = ctx.createRadialGradient(SZ*.38,SZ*.33,SZ*.08, SZ/2,SZ/2,SZ/2);
+    const g = ctx.createRadialGradient(CW*.38, CH*.33, Math.min(CW,CH)*.08, CW/2, CH/2, Math.min(CW,CH)/2);
     g.addColorStop(0,'#c8e86a'); g.addColorStop(1,'#5a9018');
-    ctx.beginPath(); ctx.arc(SZ/2,SZ/2,SZ/2-1,0,Math.PI*2);
+    ctx.beginPath(); ctx.ellipse(CW/2, CH/2, CW/2-1, CH/2-1, 0, 0, Math.PI*2);
     ctx.fillStyle = g; ctx.fill();
   }
 }
@@ -829,12 +871,14 @@ const STRINGS = {
     clearedTitle: '全クリア！',
     clearedSub:   '全部の枝豆がとびだした！',
     retryBtn:     'もう一度',
+    splashText:   'タップしてスタート',
   },
   vi: {
     swipeHint:    '← Vuốt sang vỏ tiếp theo →',
     clearedTitle: 'Hoàn thành!',
     clearedSub:   'Tất cả đậu đã bay ra!',
     retryBtn:     'Chơi lại',
+    splashText:   'Nhấn để bắt đầu',
   }
 };
 
@@ -846,6 +890,8 @@ function setLang(lang) {
   document.querySelector('#cleared .cl-title').textContent = STRINGS[lang].clearedTitle;
   document.querySelector('#cleared .cl-sub').textContent   = STRINGS[lang].clearedSub;
   document.getElementById('retry-btn').textContent = STRINGS[lang].retryBtn;
+  const splashTextEl = document.getElementById('splash-text');
+  if (splashTextEl) splashTextEl.textContent = STRINGS[lang].splashText;
   document.title = lang === 'ja' ? '枝豆ゲーム' : 'Trò Chơi Đậu';
   updateCounter();
 }
@@ -940,8 +986,9 @@ function makeBeanChar(size, faceIdx, beanIndex) {
   }
 
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size * 6;
-  canvas.style.cssText = `width:${size}px; height:${size}px;`;
+  canvas.width = Math.round(size * 6 * 370 / 320);
+  canvas.height = size * 6;
+  canvas.style.cssText = `width:${Math.round(size * 370 / 320)}px; height:${size}px;`;
   canvas.dataset.fi = faceIdx;
   drawFaceOnCanvas(canvas, faceIdx);
 
@@ -1200,6 +1247,26 @@ function updateCounter() {
 // ================================================================
 document.addEventListener('touchstart', initAudio, { once:true });
 document.addEventListener('mousedown',  initAudio, { once:true });
+
+// スプラッシュ画面
+(function() {
+  const splash = document.getElementById('splash');
+  let dismissed = false;
+  function dismiss(e) {
+    if (dismissed) return;
+    dismissed = true;
+    e.preventDefault();
+    const dummy = new Audio('audio/001.mp3');
+    dummy.volume = 0;
+    dummy.play().catch(() => {});
+    initAudio();
+    splash.style.transition = 'opacity 0.5s ease';
+    splash.style.opacity = '0';
+    setTimeout(() => splash.remove(), 600);
+  }
+  splash.addEventListener('touchend', dismiss, { passive: false });
+  splash.addEventListener('click', dismiss);
+})();
 
 resetGame();
 </script>
