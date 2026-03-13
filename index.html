@@ -511,12 +511,50 @@ if (window.speechSynthesis) {
 function speakJapanese(text) {
   if (!window.speechSynthesis) return;
   const clean = text.replace(/\n/g, '\u3000');
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(clean);
-  u.lang = 'ja-JP';
-  u.rate = 0.85;
-  if (jaVoice) u.voice = jaVoice;
-  speechSynthesis.speak(u);
+
+  function doSpeak() {
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = 'ja-JP';
+    u.rate = 0.85;
+    if (jaVoice) u.voice = jaVoice;
+
+    // iOSはローカル変数がGCに消されて無音になるためグローバルで保持
+    window._currentUtterance = u;
+
+    // 読み上げ終了後にAudioContextを再開
+    u.onend = () => { if (audioCtx) audioCtx.resume(); };
+
+    // iOS: AudioContextとの競合を避けるため読み上げ前にsuspend
+    const suspended = audioCtx && audioCtx.state === 'running';
+    const startSpeak = () => {
+      speechSynthesis.cancel();
+      setTimeout(() => speechSynthesis.speak(u), 100);
+    };
+    if (suspended) {
+      audioCtx.suspend().then(startSpeak);
+    } else {
+      startSpeak();
+    }
+  }
+
+  // Android Chrome: voicesが空の場合は読み込み完了を待ってから speak
+  if (!jaVoice && speechSynthesis.getVoices().length === 0) {
+    let done = false;
+    const fallbackTimer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      doSpeak();
+    }, 500);
+    speechSynthesis.onvoiceschanged = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(fallbackTimer);
+      loadVoices();
+      doSpeak();
+    };
+  } else {
+    doSpeak();
+  }
 }
 
 // ================================================================
