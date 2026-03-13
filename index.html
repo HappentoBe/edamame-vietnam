@@ -990,7 +990,6 @@ function onPodTouchStart(e) {
   // そのため初回タップは初期化専用とし、ゲーム操作は2回目以降から開始する。
   if (!audioSpeechReady) {
     audioSpeechReady = true;
-    initAudio();
     if (window.speechSynthesis) {
       const u = new SpeechSynthesisUtterance('');
       speechSynthesis.speak(u);
@@ -1000,7 +999,6 @@ function onPodTouchStart(e) {
   }
 
   // ── 2回目以降：通常のゲーム操作 ──
-  initAudio();
   const t = e.touches[0];
   const sx = t.clientX, sy = t.clientY;
 
@@ -1013,10 +1011,9 @@ function onPodTouchStart(e) {
     };
     return;
   }
-  // iOS: speechSynthesis.speak() はジェスチャーハンドラ内で直接呼ぶ必要がある
+  // セリフを事前選択しておく（peekBeanAtIndex で使用）
   if (gamePhase === 'idle') {
     pendingSpeech = SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
-    speakJapanese(pendingSpeech.ja);
   }
   const zone = getTouchedZone(sx);
   beginPress(zone);
@@ -1024,7 +1021,6 @@ function onPodTouchStart(e) {
 }
 
 function onPodMouseDown(e) {
-  initAudio();
   const sx = e.clientX;
   if (gamePhase === 'swipeable') {
     document.onmouseup = (ev) => {
@@ -1034,9 +1030,9 @@ function onPodMouseDown(e) {
     };
     return;
   }
+  // セリフを事前選択しておく（peekBeanAtIndex で使用）
   if (gamePhase === 'idle') {
     pendingSpeech = SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
-    speakJapanese(pendingSpeech.ja);
   }
   const zone = getTouchedZone(sx);
   beginPress(zone);
@@ -1047,6 +1043,9 @@ function beginPress(zone) {
   if (gamePhase !== 'idle') return;
   const item = beanItems[zone];
   if (!item || item.revealed || item.flown) return;
+  if (!pendingSpeech) {
+    pendingSpeech = SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
+  }
   sfxMunyu();
   const ring = document.getElementById('press-ring');
   ring.classList.remove('running');
@@ -1087,15 +1086,16 @@ function peekBeanAtIndex(index) {
   const bubble = el.querySelector('.speech-bubble');
   bubble.style.setProperty('writing-mode', 'horizontal-tb', 'important');
   bubble.style.setProperty('-webkit-writing-mode', 'horizontal-tb', 'important');
-  // ジェスチャーハンドラ内で事前選択・読み上げ済みのセリフを使う
-  const speech = pendingSpeech ?? SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
+  // beginPress() で必ず確定済みの pendingSpeech を使う
+  const speech = pendingSpeech;
   pendingSpeech = null;
   bubble.innerHTML = formatSpeech(currentLang === 'ja' ? speech.ja : speech.vi);
-  // speakJapanese はタッチ/クリックハンドラ内で既に呼び済み（iOS対応）
+  // 豆が画面に表示されたタイミング（アニメーション完了後）で音声再生
   setTimeout(() => {
     bubble.classList.add('show');
+    speakJapanese(speech.ja);
     setTimeout(() => bubble.classList.remove('show'), 8064);
-  }, 150);
+  }, 460);
 }
 
 // ================================================================
