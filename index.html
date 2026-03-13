@@ -486,37 +486,16 @@ function sfxFanfare() {
 }
 
 // ================================================================
-// Web Speech API — 日本語読み上げ
+// mp3音声再生
 // ================================================================
-let jaVoice = null;
 // ジェスチャーハンドラ内で事前選択したセリフを保持する
 let pendingSpeech = null;
-// AudioContext と SpeechSynthesis の初期化が完了しているか
-let audioSpeechReady = false;
+let pendingIndex  = null;
 
-function loadVoices() {
-  const voices = speechSynthesis.getVoices();
-  if (voices.length === 0) return;
-  jaVoice = voices.find(v => v.name === 'Google 日本語' && v.lang === 'ja-JP')
-         || voices.find(v => v.lang === 'ja-JP')
-         || null;
-}
-
-// 音声リストは非同期で読み込まれるため両方で取得を試みる
-if (window.speechSynthesis) {
-  speechSynthesis.onvoiceschanged = loadVoices;
-  loadVoices();
-}
-
-function speakJapanese(text) {
-  if (!window.speechSynthesis) return;
-  const clean = text.replace(/\n/g, '\u3000');
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(clean);
-  u.lang = 'ja-JP';
-  u.rate = 0.85;
-  if (jaVoice) u.voice = jaVoice;
-  speechSynthesis.speak(u);
+function playAudio(index) {
+  const num = String(index + 1).padStart(3, '0');
+  const audio = new Audio(`audio/${num}.mp3`);
+  audio.play();
 }
 
 // ================================================================
@@ -989,21 +968,6 @@ function getTouchedZone(clientX) {
 function onPodTouchStart(e) {
   e.preventDefault();
 
-  // ── 1回目のタップ：AudioContext と SpeechSynthesis を初期化するだけ ──
-  // iOS では AudioContext と SpeechSynthesis を同一ジェスチャーで同時起動すると
-  // オーディオセッションが競合して読み上げがブロックされる。
-  // そのため初回タップは初期化専用とし、ゲーム操作は2回目以降から開始する。
-  if (!audioSpeechReady) {
-    audioSpeechReady = true;
-    if (window.speechSynthesis) {
-      const u = new SpeechSynthesisUtterance('');
-      speechSynthesis.speak(u);
-      speechSynthesis.cancel();
-    }
-    return;
-  }
-
-  // ── 2回目以降：通常のゲーム操作 ──
   const t = e.touches[0];
   const sx = t.clientX, sy = t.clientY;
 
@@ -1018,7 +982,8 @@ function onPodTouchStart(e) {
   }
   // セリフを事前選択しておく（peekBeanAtIndex で使用）
   if (gamePhase === 'idle') {
-    pendingSpeech = SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
+    pendingIndex  = Math.floor(Math.random() * SPEECHES.length);
+    pendingSpeech = SPEECHES[pendingIndex];
   }
   const zone = getTouchedZone(sx);
   beginPress(zone);
@@ -1037,7 +1002,8 @@ function onPodMouseDown(e) {
   }
   // セリフを事前選択しておく（peekBeanAtIndex で使用）
   if (gamePhase === 'idle') {
-    pendingSpeech = SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
+    pendingIndex  = Math.floor(Math.random() * SPEECHES.length);
+    pendingSpeech = SPEECHES[pendingIndex];
   }
   const zone = getTouchedZone(sx);
   beginPress(zone);
@@ -1049,7 +1015,8 @@ function beginPress(zone) {
   const item = beanItems[zone];
   if (!item || item.revealed || item.flown) return;
   if (!pendingSpeech) {
-    pendingSpeech = SPEECHES[Math.floor(Math.random() * SPEECHES.length)];
+    pendingIndex  = Math.floor(Math.random() * SPEECHES.length);
+    pendingSpeech = SPEECHES[pendingIndex];
   }
   sfxMunyu();
   const ring = document.getElementById('press-ring');
@@ -1091,16 +1058,18 @@ function peekBeanAtIndex(index) {
   const bubble = el.querySelector('.speech-bubble');
   bubble.style.setProperty('writing-mode', 'horizontal-tb', 'important');
   bubble.style.setProperty('-webkit-writing-mode', 'horizontal-tb', 'important');
-  // beginPress() で必ず確定済みの pendingSpeech を使う
+  // beginPress() で必ず確定済みの pendingSpeech/pendingIndex を使う
   const speech = pendingSpeech;
+  const audioIndex = pendingIndex;
   pendingSpeech = null;
+  pendingIndex  = null;
   bubble.innerHTML = currentLang === 'ja'
     ? formatSpeech(speech.ja)
     : formatSpeech(speech.vi) + '<div class="speech-sub">' + formatSpeech(speech.ja) + '</div>';
   // 豆が画面に表示されたタイミング（アニメーション完了後）で音声再生
   setTimeout(() => {
     bubble.classList.add('show');
-    speakJapanese(speech.ja);
+    playAudio(audioIndex);
     setTimeout(() => bubble.classList.remove('show'), 8064);
   }, 460);
 }
